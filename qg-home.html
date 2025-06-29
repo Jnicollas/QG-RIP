@@ -2,7 +2,7 @@
 
 <style>
 .reddit-card {
-  background: #fff;
+  background: #ffffffd6;
   color: #000;
   border: 1px solid #ddd;
   border-radius: 12px;
@@ -194,29 +194,48 @@ if (videoUrl.includes("youtu")) {
           </div>
         </div>
 
-        <div class="reddit-title">${post.post_title}</div>
-        ${videoUrl.includes("youtu") ? `<div class="reddit-badge">Vídeo</div>` : ""}
+        <a href="${postUrl}" style="text-decoration: none; color: inherit; display: block;">
+          <div class="reddit-title">${post.post_title}</div>
+          ${videoUrl.includes("youtu") ? `<div class="reddit-badge">Vídeo</div>` : ""}
+        </a>
+
         ${embed}
-        <div class="reddit-description">${descricao}</div>
+
+        <a href="${postUrl}" style="text-decoration: none; color: inherit; display: block;">
+          <div class="reddit-description">${descricao}</div>
+        </a>
 
         <div class="reddit-footer">
-          <div class="vote-group">
-            <button class="vote-btn">⬆</button><span class="vote-count">${post.likes || 0}</span>
-            <button class="vote-btn">⬇</button>
+          <div class="vote-group" style="display:flex; gap:12px; align-items:center;">
+            <!-- Like -->
+            <button id="btn-up-${post.comment_ID}" onclick="votarComentario(${post.comment_ID}, 'up', this)" class="vote-btn">
+              <img src="https://cdn-icons-png.flaticon.com/512/889/889140.png" width="18" style="vertical-align:middle; margin-right:4px; filter:grayscale(1);">
+              <span id="likes-${post.comment_ID}">${post.likes || 0}</span>
+            </button>
+
+            <!-- Dislike -->
+            <button id="btn-down-${post.comment_ID}" onclick="votarComentario(${post.comment_ID}, 'down', this)" class="vote-btn">
+              <img src="https://cdn-icons-png.flaticon.com/512/889/889139.png" width="18" style="vertical-align:middle; margin-right:4px; filter:grayscale(1);">
+              <span id="dislikes-${post.comment_ID}">${post.dislikes || 0}</span>
+            </button>
           </div>
+
           <div class="comment-count" style="display: flex; align-items: center; gap: 10px;">
-  <span style="cursor:pointer;" onclick="window.location.href='${postUrl}'">
-    💬 ${post.comentarios || 0}
-  </span>
-  👁️ ${views}
-</div>
+            <span style="cursor:pointer;" onclick="window.location.href='${postUrl}'">
+              💬 ${post.comentarios || 0}
+            </span>
+            <div class="vote-btn" style="display:flex; align-items:center;">
+              <img src="https://cdn-icons-png.flaticon.com/512/709/709612.png" width="18" style="vertical-align:middle; margin-right:4px;">
+              <span>${post.views || 0}</span>
+            </div>
+          </div>
 
           <button class="vote-btn" onclick="copiarLink('${postUrl}', this)">
             <img src="https://cdn-icons-png.flaticon.com/512/929/929610.png" style="width:16px; height:16px; vertical-align:middle;"> Compartilhar
           </button>
-
         </div>
       `;
+
       container.appendChild(div);
       observer.observe(div);
     }
@@ -236,4 +255,62 @@ function copiarLink(link, btn) {
   });
 }
 
+async function votarComentario(commentID, tipo, el) {
+  try {
+    // 🔐 Obtém token de votação
+    const tokenRes = await fetch("https://rip-bf5.com.br/api/token/access_token_comment/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }
+    });
+
+    const tokenData = await tokenRes.json();
+    if (!tokenData.success || !tokenData.access_token_comment) {
+      alert("Erro ao obter token.");
+      return;
+    }
+
+    // 📤 Envia voto
+    const res = await fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        action: "like_dislike_comment",
+        comment_ID: commentID,
+        tipo: tipo,
+        access_token_comment: tokenData.access_token_comment
+      })
+    });
+
+    const result = await res.json();
+
+    // ✅ Atualiza visual com base em likes e dislikes retornados
+    if (result.success) {
+      const elUp = document.getElementById(`btn-up-${commentID}`);
+      const elDown = document.getElementById(`btn-down-${commentID}`);
+
+      if (elUp && elDown) {
+        const imgUp = elUp.querySelector("img");
+        const imgDown = elDown.querySelector("img");
+
+        // Atualiza contadores numéricos
+        elUp.innerHTML = `<img src="https://cdn-icons-png.flaticon.com/512/126/126473.png" style="width:14px; height:14px;"> ${result.likes}`;
+        elDown.innerHTML = `<img src="https://cdn-icons-png.flaticon.com/512/126/126504.png" style="width:14px; height:14px;"> ${result.dislikes}`;
+
+        // Atualiza o visual do botão clicado
+        if (tipo === "up") {
+          imgUp.style.filter = "grayscale(0)";
+          imgDown.style.filter = "grayscale(1)";
+        } else {
+          imgUp.style.filter = "grayscale(1)";
+          imgDown.style.filter = "grayscale(0)";
+        }
+      }
+    } else {
+      alert(result.message || "Erro ao votar.");
+    }
+
+  } catch (e) {
+    console.error("Erro ao votar:", e);
+  }
+}
 </script>

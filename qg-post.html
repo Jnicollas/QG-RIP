@@ -9,6 +9,8 @@
     }
     body {
       background: #f5f7fa;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
     }
 
     .qg-form-container {
@@ -83,7 +85,17 @@
     #linkField {
       display: none;
     }
+
+    .cf-turnstile {
+      margin-top: 20px;
+    }
+
+    .msg {
+      margin-top: 15px;
+      font-weight: bold;
+    }
   </style>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 
@@ -96,43 +108,105 @@
     <form id="formQG" class="qg-form">
       <label for="titulo">Título*</label>
       <input type="text" id="titulo" name="titulo" maxlength="300" required oninput="updateCharCount()">
+       <input type="hidden" name="post_type" id="post_type" value="texto">
       <div class="char-counter" id="charCounter">0/300</div>
 
       <div id="linkField">
         <label for="link_url">URL do Link*</label>
-        <input type="text" id="link_url" name="link_url" placeholder="https://..." />
+        <input type="text" id="link_url" name="link_url" placeholder="https://...">
       </div>
 
       <label for="content">Texto do post*</label>
       <textarea id="content" name="content" rows="6" required></textarea>
 
+      <div class="cf-turnstile" data-sitekey="0x4AAAAAABhpmnLShaW2T2e0"></div>
+
       <button type="submit">Postar</button>
+      <div class="msg" id="mensagem"></div>
     </form>
   </div>
 
   <script>
-    function selectTab(tipo) {
-      const tabs = document.querySelectorAll(".qg-tab");
-      tabs.forEach(tab => tab.classList.remove("active"));
-      document.querySelector(`.qg-tab:nth-child(${tipo === 'texto' ? 1 : 2})`).classList.add("active");
+function selectTab(tipo) {
+  const tabs = document.querySelectorAll(".qg-tab");
+  tabs.forEach(tab => tab.classList.remove("active"));
+  document.querySelector(`.qg-tab:nth-child(${tipo === 'texto' ? 1 : 2})`).classList.add("active");
 
-      const linkField = document.getElementById("linkField");
-      const linkInput = document.getElementById("link_url");
+  const linkField = document.getElementById("linkField");
+  const linkInput = document.getElementById("link_url");
+  const postTypeInput = document.getElementById("post_type");
 
-      if (tipo === 'link') {
-        linkField.style.display = "block";
-        linkInput.setAttribute("required", "required");
-      } else {
-        linkField.style.display = "none";
-        linkInput.removeAttribute("required");
-      }
-    }
+  if (tipo === 'link') {
+    linkField.style.display = "block";
+    linkInput.setAttribute("required", "required");
+    postTypeInput.value = "link";
+  } else {
+    linkField.style.display = "none";
+    linkInput.removeAttribute("required");
+    postTypeInput.value = "texto";
+  }
+}
+
 
     function updateCharCount() {
       const input = document.getElementById("titulo");
       const counter = document.getElementById("charCounter");
       counter.textContent = `${input.value.length}/300`;
     }
+
+    document.getElementById("formQG").addEventListener("submit", async function(e) {
+      e.preventDefault();
+
+      const form = new FormData(e.target);
+      form.append("action", "post_public");
+
+      const msg = document.getElementById("mensagem");
+      msg.textContent = "Enviando...";
+      msg.style.color = "#333";
+
+      try {
+        const tokenRes = await fetch("https://rip-bf5.com.br/api/token/access_token_comment/", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" }
+        });
+
+        const tokenData = await tokenRes.json();
+        if (!tokenData.success || !tokenData.access_token_comment) {
+          msg.textContent = "Token inválido.";
+          msg.style.color = "red";
+          return;
+        }
+
+        const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
+        if (!turnstileToken) {
+          msg.textContent = "Validação do Cloudflare falhou.";
+          msg.style.color = "red";
+          return;
+        }
+
+        form.append("access_token_comment", tokenData.access_token_comment);
+        form.append("cf-turnstile-response", turnstileToken);
+
+        const res = await fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+          method: "POST",
+          body: new URLSearchParams(form)
+        });
+
+        const json = await res.json();
+        msg.textContent = json.message;
+        msg.style.color = json.success ? "green" : "red";
+
+        if (json.success) {
+          e.target.reset();
+          updateCharCount();
+          turnstile.reset();
+          selectTab('texto');
+        }
+      } catch (err) {
+        msg.textContent = "Erro ao enviar.";
+        msg.style.color = "red";
+      }
+    });
   </script>
 
 </body>
