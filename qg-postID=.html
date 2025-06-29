@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Postagem do QG</title>
+  <style>
+    .reddit-card {
+      background: #fff;
+      color: #000;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 20px auto;
+      max-width: 720px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      font-family: Arial, sans-serif;
+    }
+    .reddit-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .reddit-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+    }
+    .reddit-meta {
+      display: flex;
+      flex-direction: column;
+    }
+    .reddit-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 8px 0;
+    }
+    .reddit-description {
+      font-size: 15px;
+      color: #222;
+      margin-top: 10px;
+    }
+    .reddit-badge {
+      display: inline-block;
+      background: #eee;
+      color: #333;
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .reddit-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #ccc;
+      font-size: 14px;
+      color: #444;
+    }
+    .vote-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .vote-btn {
+      background: #f3f3f3;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 6px;
+      cursor: pointer;
+    }
+    .share-btn a {
+      text-decoration: none;
+      color: #0066cc;
+      font-weight: bold;
+    }
+.vote-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f0f0;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  transition: background 0.2s ease;
+}
+.vote-btn:hover {
+  background: #e2e2e2;
+}
+
+  </style>
+</head>
+<body>
+
+<div id="postUnico"></div>
+
+<script>
+async function carregarPostUnico() { 
+  const urlParams = new URLSearchParams(window.location.search);
+  const comment_ID = urlParams.get("postID");
+  if (!comment_ID) return;
+
+  const res = await fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ action: "get_post_by_id", comment_ID })
+  });
+
+  const data = await res.json();
+  const container = document.getElementById("postUnico");
+  container.innerHTML = "";
+
+  if (data.success && data.post) {
+    const post = data.post;
+    const ea_id = post.ea_id;
+    let userName = "Usuário";
+    let avatar = "https://via.placeholder.com/40";
+
+    try {
+      const perfilRes = await fetch(`https://api.gametools.network/bfglobal/games/?include_emblem=false&playerid=${ea_id}&platform=pc&skip_battlelog=false`);
+      const perfil = await perfilRes.json();
+      userName = perfil.userName || "Usuário";
+      avatar = perfil.avatar || avatar;
+    } catch {}
+
+let embed = "";
+let isYoutube = false;
+
+const content = post.comment_content || "";
+const contentMatch = content.match(/\[link\](.*?)\[\/link\]\s*(.*)/s);
+
+const videoUrl = contentMatch ? contentMatch[1].trim() : "";
+const descricao = contentMatch ? contentMatch[2].trim() : content.trim(); // fallback
+
+if (videoUrl.includes("youtu")) {
+  const ytMatch = videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) {
+    isYoutube = true;  // <-- ESSA LINHA ESTAVA FALTANDO
+    embed = `
+      <iframe width="100%" height="360" src="https://www.youtube.com/embed/${ytMatch[1]}" 
+              frameborder="0" allowfullscreen style="border-radius: 8px;"></iframe>`;
+  }
+} else if (/\.mp4(\?|$)/i.test(videoUrl)) {
+  embed = `
+    <video controls width="100%" style="max-height: 480px; border-radius: 8px; background: #000;">
+      <source src="${videoUrl}" type="video/mp4">
+      Seu navegador não suporta a tag de vídeo.
+    </video>`;
+} else if (videoUrl) {
+  embed = `<a href="${videoUrl}" target="_blank" style="word-break: break-all;">${videoUrl}</a>`;
+}
+
+
+    const postUrl = `https://rip-bf5.com.br/qg/${post.comment_ID}/${urlParams.get("ti") || "post"}`;
+
+    const div = document.createElement("div");
+    div.className = "reddit-card";
+    div.innerHTML = `
+      <div class="reddit-header">
+        <img src="${avatar}" class="reddit-avatar">
+        <div class="reddit-meta">
+          <span><strong>u/${userName}</strong></span>
+          <span>${post.comment_date}</span>
+        </div>
+      </div>
+
+      <div class="reddit-title">${post.post_title}</div>
+      ${isYoutube ? `<div class="reddit-badge">Vídeo</div>` : ""}
+      ${embed || `<a href="${videoUrl}" target="_blank">${videoUrl}</a>`}
+      <div class="reddit-description">${descricao}</div>
+
+<div class="reddit-footer" style="border-top:1px solid #ccc; margin-top:12px; padding-top:10px;">
+  <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
+
+<!-- Like -->
+<button id="btn-up-${post.comment_ID}" onclick="votarComentario(${post.comment_ID}, 'up', this)" class="vote-btn">
+  <img src="https://cdn-icons-png.flaticon.com/512/889/889140.png" width="18" style="vertical-align:middle; margin-right:4px; filter:grayscale(1);">
+  <span id="likes-${post.comment_ID}">${post.likes || 0}</span>
+</button>
+
+<!-- Dislike -->
+<button id="btn-down-${post.comment_ID}" onclick="votarComentario(${post.comment_ID}, 'down', this)" class="vote-btn">
+  <img src="https://cdn-icons-png.flaticon.com/512/889/889139.png" width="18" style="vertical-align:middle; margin-right:4px; filter:grayscale(1);">
+  <span id="dislikes-${post.comment_ID}">${post.dislikes || 0}</span>
+</button>
+
+
+    <!-- Visualizações -->
+    <div class="vote-btn" style="display:flex; align-items:center;">
+      <img src="https://cdn-icons-png.flaticon.com/512/709/709612.png" width="18" style="vertical-align:middle; margin-right:4px;">
+      <span>${post.views || 0}</span>
+    </div>
+
+    <!-- Menu de opções -->
+    <div style="position: relative; display: inline-block;">
+      <button class="vote-btn" onclick="toggleMenu(this)">⋮</button>
+      <div class="menu-opcoes" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; padding:6px 0; border-radius:6px; right:0; box-shadow:0 2px 10px rgba(0,0,0,0.15); z-index:999;">
+        <div onclick="copiarLink('${postUrl}', this)" style="padding:6px 16px; cursor:pointer;">🔗 Compartilhar</div>
+        <div onclick="apagarComentario(${post.comment_ID}, true)" style="padding:6px 16px; cursor:pointer; color:#e74c3c;">🗑️ Apagar</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+      <div id="caixa-comentarios-${post.comment_ID}" style="margin-top: 25px;">
+        <textarea placeholder="Participe da conversa" style="width:97%; height:80px; padding:10px; border-radius:8px; border:1px solid #ccc; resize: vertical;"></textarea>
+        <div style="margin-top: 8px; text-align:right;">
+          <button onclick="enviarComentario(${post.comment_ID})" style="background:#2d6cdf; color:white; border:none; border-radius:6px; padding:6px 16px; cursor:pointer;">Comentar</button>
+        </div>
+      </div>
+
+      <div id="comentarios-${post.comment_ID}" style="margin-top:20px;"></div>
+    `;
+    container.appendChild(div);
+
+    // ✅ Registra visualização
+    fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        action: "register_view",
+        comment_ID: post.comment_ID
+      })
+    }).then(res => res.json()).then(json => {
+      console.log("📌 Visualização única registrada:", json);
+    });
+
+    carregarComentarios(post.comment_ID);
+  }
+}
+
+
+carregarPostUnico();
+
+function copiarLink(link, btn) {
+  navigator.clipboard.writeText(link).then(() => {
+    const original = btn.innerHTML;
+    btn.innerHTML = "✅ Copiado!";
+    setTimeout(() => btn.innerHTML = original, 2000);
+  });
+}
+
+function toggleMenu(btn) {
+  const menu = btn.parentElement.querySelector(".menu-opcoes");
+  const menus = document.querySelectorAll(".menu-opcoes");
+
+  menus.forEach(m => {
+    if (m !== menu) m.style.display = "none";
+  });
+
+  if (menu) {
+    menu.style.display = (menu.style.display === "block") ? "none" : "block";
+  }
+}
+
+
+// Fecha menus se clicar fora
+document.addEventListener("click", function(e) {
+  if (!e.target.closest(".menu-opcoes") && !e.target.closest(".vote-btn")) {
+    document.querySelectorAll(".menu-opcoes").forEach(m => m.style.display = "none");
+  }
+});
+
+
+// Fecha menu ao clicar fora
+document.addEventListener("click", function(e) {
+  if (!e.target.closest(".menu-opcoes") && !e.target.closest("button.vote-btn")) {
+    document.querySelectorAll(".menu-opcoes").forEach(m => m.style.display = "none");
+  }
+});
+
+
+function curtirPost(commentID) {
+  fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ action: "like_post", comment_ID: commentID })
+  })
+  .then(res => res.json())
+  .then(json => {
+    if (json.success) {
+      const likeEl = document.getElementById(`likes-${commentID}`);
+      likeEl.textContent = json.total || parseInt(likeEl.textContent) + 1;
+    }
+  });
+}
+
+async function enviarComentario(commentID) {
+  const textarea = document.querySelector(`#caixa-comentarios-${commentID} textarea`);
+  const conteudo = textarea.value.trim();
+  if (!conteudo) return alert("Digite um comentário antes de enviar!");
+
+  const tokenRes = await fetch("https://rip-bf5.com.br/api/token/access_token_comment/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" }
+  });
+
+  const tokenData = await tokenRes.json();
+  if (!tokenData.success || !tokenData.access_token_comment) {
+    console.warn("🔒 Falha ao obter token.");
+    return alert("Erro de autenticação para comentar.");
+  }
+
+  const nome = tokenData.nome || "Usuário"; // Ou pegue outro campo que a API retorne
+
+  fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      action: "set_post_comments",
+      post_id: commentID,
+      content: conteudo,
+      author: nome,
+      access_token_comment: tokenData.access_token_comment
+    })
+  })
+  .then(res => res.json())
+  .then(json => {
+    if (json.success) {
+      textarea.value = "";
+      carregarComentarios(commentID);
+    } else {
+      alert(json.message || "Erro ao comentar.");
+    }
+  });
+}
+
+async function carregarComentarios(commentID) {
+  const res = await fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      action: "get_post_comments",
+      post_id: commentID
+    })
+  });
+
+  const json = await res.json();
+  const container = document.getElementById(`comentarios-${commentID}`);
+  if (!json.success || !Array.isArray(json.comments)) {
+    container.innerHTML = "<p style='color:#888;'>Nenhum comentário encontrado.</p>";
+    return;
+  }
+
+  // 🔐 Token para saber se pode apagar
+  const tokenRes = await fetch("https://rip-bf5.com.br/api/token/access_token_comment/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" }
+  });
+  const tokenData = await tokenRes.json();
+  const tokenEaId = tokenData.success ? tokenData.ea_id : null;
+
+  // 🔁 Busca perfis dos comentários e das respostas
+  async function preencherPerfis(respostas) {
+    for (const r of respostas) {
+      try {
+        const perfilRes = await fetch(`https://api.gametools.network/bfglobal/games/?include_emblem=false&playerid=${r.ea_id}&platform=pc&skip_battlelog=false`);
+        const perfil = await perfilRes.json();
+        r.userName = perfil.userName || "Usuário";
+        r.avatar = perfil.avatar || "https://via.placeholder.com/30";
+      } catch {
+        r.userName = "Usuário";
+        r.avatar = "https://via.placeholder.com/30";
+      }
+
+      if (Array.isArray(r.respostas)) {
+        await preencherPerfis(r.respostas);
+      }
+    }
+  }
+
+  const commentsWithProfile = await Promise.all(json.comments.map(async c => {
+    let userName = "Usuário";
+    let avatar = "https://via.placeholder.com/30";
+
+    try {
+      const perfilRes = await fetch(`https://api.gametools.network/bfglobal/games/?include_emblem=false&playerid=${c.ea_id}&platform=pc&skip_battlelog=false`);
+      const perfil = await perfilRes.json();
+      userName = perfil.userName || "Usuário";
+      avatar = perfil.avatar || avatar;
+    } catch {}
+
+    const respostas = c.respostas || [];
+    await preencherPerfis(respostas);
+    return { ...c, userName, avatar, respostas };
+  }));
+
+  // 📅 Função tempo relativo
+  function tempoRelativo(dataISO) {
+    const agora = new Date();
+    const data = new Date(dataISO);
+    let segundos = Math.floor((agora - data) / 1000);
+    if (segundos < 60) return "há poucos segundos";
+    const minutos = Math.floor(segundos / 60);
+    if (minutos < 60) return `há ${minutos} min`;
+    const horas = Math.floor(minutos / 60);
+    if (horas < 24) return `há ${horas} h`;
+    const dias = Math.floor(horas / 24);
+    if (dias < 365) return `há ${dias} d`;
+    const dia = String(data.getDate()).padStart(2, '0');
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const ano = data.getFullYear();
+    const hora = String(data.getHours()).padStart(2, '0');
+    const minuto = String(data.getMinutes()).padStart(2, '0');
+    return `${dia}/${mes}/${ano} às ${hora}:${minuto}`;
+  }
+
+  // 🧩 Função de renderização recursiva
+  function renderizarRespostasRecursivas(respostas, nivel = 1) {
+    return respostas.map(r => {
+      const podeApagarResposta = tokenEaId && r.ea_id === tokenEaId;
+      const margin = 42 * nivel;
+      return `
+      <div style="margin-left: ${margin}px; margin-top: 10px; border-left: 2px solid #ddd; padding-left: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="${r.avatar}" style="width:28px; height:28px; border-radius: 4px;">
+          <div style="display: flex; flex-direction: column;">
+            <div>
+              <strong style="font-size:13px;">${r.userName}</strong>
+              <span style="font-size:12px; color:#777;"> • ${tempoRelativo(r.comment_date)}</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-left: 38px; font-size:13px; margin-top:2px;">
+          ${r.comment_content}
+        </div>
+        <div style="margin-left: 38px; margin-top:6px; display: flex; gap: 18px; font-size:13px; color:#555;">
+          <div style="display:flex; align-items:center; gap:20px;">
+            <span onclick="votarComentario(${r.comment_ID}, 'up', this)" id="btn-up-${r.comment_ID}" style="cursor:pointer; display: flex; align-items:center; gap:4px; color: #000;">
+              <img src="https://cdn-icons-png.flaticon.com/512/126/126473.png" style="width:14px; height:14px;"> ${r.likes || 0}
+            </span>
+            <span onclick="votarComentario(${r.comment_ID}, 'down', this)" id="btn-down-${r.comment_ID}" style="cursor:pointer; display: flex; align-items:center; gap:4px; color: #000;">
+              <img src="https://cdn-icons-png.flaticon.com/512/126/126504.png" style="width:14px; height:14px;"> ${r.dislikes || 0}
+            </span>
+          </div>
+          <span onclick="mostrarResposta(${r.comment_ID})" style="cursor:pointer; display: flex; align-items:center; gap:4px;">
+            <img src="https://cdn-icons-png.flaticon.com/512/2462/2462719.png" style="width:14px; height:14px;"> Responder
+          </span>
+          <div style="position: relative; display: inline-block;">
+            <button type="button" class="vote-btn" onclick="toggleMenu(this)">⋮</button>
+            <div class="menu-opcoes" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; padding:6px 0; border-radius:6px; right:0; box-shadow:0 2px 10px rgba(0,0,0,0.15); z-index:999;">
+              <div onclick="copiarLinkComentario(${r.comment_ID}, this)" style="padding:6px 16px; cursor:pointer;">🔗 Compartilhar</div>
+              <div onclick="apagarComentario(${r.comment_ID}, false)" style="padding:6px 16px; cursor:pointer; color:#e74c3c;">🗑️ Apagar</div>
+            </div>
+          </div>
+        </div>
+        <div id="resposta-${r.comment_ID}" style="display:none; margin-left: 38px; margin-top:8px;">
+          <textarea placeholder="Digite sua resposta..." style="width:100%; height:60px; padding:8px; border:1px solid #ccc; border-radius:6px; resize:vertical;"></textarea>
+          <div style="margin-top:6px; text-align:right;">
+            <button onclick="enviarResposta(${r.comment_ID})" style="background:#2d6cdf; color:white; border:none; border-radius:6px; padding:6px 16px; cursor:pointer;">Enviar</button>
+          </div>
+        </div>
+        ${renderizarRespostasRecursivas(r.respostas || [], nivel + 1)}
+      </div>
+      `;
+    }).join("");
+  }
+
+  // 🧱 Render principal
+  container.innerHTML = commentsWithProfile.map(c => {
+    return `
+      <div style="margin: 20px 0; padding-left: 8px; border-left: 2px solid #ccc;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="${c.avatar}" style="width:32px; height:32px; border-radius: 4px;">
+          <div style="display: flex; flex-direction: column;">
+            <div>
+              <strong style="font-size:14px;">${c.userName}</strong>
+              <span style="font-size:12px; color:#777;"> • ${tempoRelativo(c.comment_date)}</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-left: 42px; font-size:14px; margin-top:4px;">
+          ${c.comment_content}
+        </div>
+        <div style="margin-left: 42px; margin-top:6px; display: flex; gap: 18px; font-size:13px; color:#555;">
+          <div style="display:flex; align-items:center; gap:20px;">
+            <span onclick="votarComentario(${c.comment_ID}, 'up', this)" id="btn-up-${c.comment_ID}" style="cursor:pointer; display: flex; align-items:center; gap:4px; color: #000;">
+              <img src="https://cdn-icons-png.flaticon.com/512/126/126473.png" style="width:14px; height:14px;"> ${c.likes || 0}
+            </span>
+            <span onclick="votarComentario(${c.comment_ID}, 'down', this)" id="btn-down-${c.comment_ID}" style="cursor:pointer; display: flex; align-items:center; gap:4px; color: #000;">
+              <img src="https://cdn-icons-png.flaticon.com/512/126/126504.png" style="width:14px; height:14px;"> ${c.dislikes || 0}
+            </span>
+          </div>
+          <span onclick="mostrarResposta(${c.comment_ID})" style="cursor:pointer; display: flex; align-items:center; gap:4px;">
+            <img src="https://cdn-icons-png.flaticon.com/512/2462/2462719.png" style="width:14px; height:14px;"> Responder
+          </span>
+          <div style="position: relative; display: inline-block;">
+            <button type="button" class="vote-btn" onclick="toggleMenu(this)">⋮</button>
+            <div class="menu-opcoes" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; padding:6px 0; border-radius:6px; right:0; box-shadow:0 2px 10px rgba(0,0,0,0.15); z-index:999;">
+              <div onclick="copiarLinkComentario(${c.comment_ID}, this)" style="padding:6px 16px; cursor:pointer;">🔗 Compartilhar</div>
+              <div onclick="apagarComentario(${c.comment_ID}, false)" style="padding:6px 16px; cursor:pointer; color:#e74c3c;">🗑️ Apagar</div>
+            </div>
+          </div>
+        </div>
+        <div id="resposta-${c.comment_ID}" style="display:none; margin-left: 42px; margin-top:8px;">
+          <textarea placeholder="Digite sua resposta..." style="width:100%; height:60px; padding:8px; border:1px solid #ccc; border-radius:6px; resize:vertical;"></textarea>
+          <div style="margin-top:6px; text-align:right;">
+            <button onclick="enviarResposta(${c.comment_ID})" style="background:#2d6cdf; color:white; border:none; border-radius:6px; padding:6px 16px; cursor:pointer;">Enviar</button>
+          </div>
+        </div>
+        ${renderizarRespostasRecursivas(c.respostas)}
+      </div>
+    `;
+  }).join("");
+}
+
+function mostrarResposta(commentID) {
+  const caixa = document.getElementById(`resposta-${commentID}`);
+  if (caixa) {
+    caixa.style.display = caixa.style.display === "none" ? "block" : "none";
+  }
+}
+
+async function enviarResposta(commentID) {
+  const caixa = document.querySelector(`#resposta-${commentID} textarea`);
+  const resposta = caixa.value.trim();
+  if (!resposta) return alert("Digite uma resposta.");
+
+  // 🔐 Token
+  const tokenRes = await fetch("https://rip-bf5.com.br/api/token/access_token_comment/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" }
+  });
+
+  const tokenData = await tokenRes.json();
+  if (!tokenData.success || !tokenData.access_token_comment) {
+    alert("Erro ao obter token.");
+    return;
+  }
+
+  // 📤 Envia a resposta com novo action
+  const res = await fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      action: "reply_comment",  // NOVO ACTION
+      parent_id: commentID,     // ID do comentário sendo respondido
+      content: resposta,
+      access_token_comment: tokenData.access_token_comment
+    })
+  });
+
+  const result = await res.json();
+  if (result.success) {
+    carregarComentarios(result.post_id || commentID); // recarrega os comentários
+  } else {
+    alert(result.message || "Erro ao enviar resposta.");
+  }
+}
+
+function copiarLinkComentario(commentID, btn) {
+  const urlParams = new URLSearchParams(window.location.search);
+  const postID = urlParams.get("postID") || commentID; // fallback caso não venha
+
+  const link = `https://rip-bf5.com.br/qg/?postID=${postID}&comment=${commentID}`;
+  navigator.clipboard.writeText(link).then(() => {
+    const original = btn.innerHTML;
+    btn.innerHTML = "✅ Copiado!";
+    setTimeout(() => btn.innerHTML = original, 2000);
+  });
+}
+
+async function votarComentario(commentID, tipo, el) {
+  try {
+    // 🔐 Obtém token de votação
+    const tokenRes = await fetch("https://rip-bf5.com.br/api/token/access_token_comment/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }
+    });
+
+    const tokenData = await tokenRes.json();
+    if (!tokenData.success || !tokenData.access_token_comment) {
+      alert("Erro ao obter token.");
+      return;
+    }
+
+    // 📤 Envia voto
+    const res = await fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        action: "like_dislike_comment",
+        comment_ID: commentID,
+        tipo: tipo,
+        access_token_comment: tokenData.access_token_comment
+      })
+    });
+
+    const result = await res.json();
+
+    // ✅ Atualiza visual com base em likes e dislikes retornados
+    if (result.success) {
+      const elUp = document.getElementById(`btn-up-${commentID}`);
+      const elDown = document.getElementById(`btn-down-${commentID}`);
+
+      if (elUp && elDown) {
+        const imgUp = elUp.querySelector("img");
+        const imgDown = elDown.querySelector("img");
+
+        // Atualiza contadores numéricos
+        elUp.innerHTML = `<img src="https://cdn-icons-png.flaticon.com/512/126/126473.png" style="width:14px; height:14px;"> ${result.likes}`;
+        elDown.innerHTML = `<img src="https://cdn-icons-png.flaticon.com/512/126/126504.png" style="width:14px; height:14px;"> ${result.dislikes}`;
+
+        // Atualiza o visual do botão clicado
+        if (tipo === "up") {
+          imgUp.style.filter = "grayscale(0)";
+          imgDown.style.filter = "grayscale(1)";
+        } else {
+          imgUp.style.filter = "grayscale(1)";
+          imgDown.style.filter = "grayscale(0)";
+        }
+      }
+    } else {
+      alert(result.message || "Erro ao votar.");
+    }
+
+  } catch (e) {
+    console.error("Erro ao votar:", e);
+  }
+}
+
+async function apagarComentario(comment_ID, isPost = false) {
+  const modal = document.createElement("div");
+  modal.id = "modalConfirmacaoExclusao";
+  modal.innerHTML = `
+    <div style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999;">
+      <div style="background:white; padding:20px 30px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.2); max-width:400px; width:100%;">
+        <div style="font-size:18px; font-weight:bold; margin-bottom:10px;">Apagar comentário?</div>
+        <div style="font-size:14px; color:#333; margin-bottom:20px;">
+          Tem certeza que deseja apagar seu comentário? Você não poderá desfazer isto.
+        </div>
+        <div style="display:flex; justify-content: flex-end; gap:10px;">
+          <button id="cancelarApagar" style="padding:8px 16px; border:none; background:#e0e0e0; border-radius:6px; cursor:pointer;">Cancelar</button>
+          <button id="confirmarApagar" style="padding:8px 16px; border:none; background:#d93025; color:white; border-radius:6px; cursor:pointer;">Apagar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // ✅ FECHAR MODAL AO CLICAR EM CANCELAR
+  modal.querySelector("#cancelarApagar").addEventListener("click", () => {
+    modal.remove();
+  });
+
+  modal.querySelector("#confirmarApagar").addEventListener("click", async () => {
+    modal.remove();
+
+    const tokenRes = await fetch("https://rip-bf5.com.br/api/token/access_token_comment/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }
+    });
+
+    const tokenData = await tokenRes.json();
+    if (!tokenData.success || !tokenData.access_token_comment) {
+      alert("Erro de autenticação.");
+      return;
+    }
+
+    const res = await fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        action: isPost ? "delete_my_post" : "delete_my_post",
+        comment_ID,
+        access_token_comment: tokenData.access_token_comment
+      })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      mostrarToast("✅ Comentário apagado com sucesso!");
+
+      if (isPost) {
+        setTimeout(() => {
+          window.location.href = "/qg";
+        }, 1000);
+      } else {
+        const postID = new URLSearchParams(window.location.search).get("postID");
+        if (postID) {
+          carregarComentarios(postID);
+        }
+      }
+    } else {
+      mostrarToast("❌ Erro ao apagar.");
+    }
+  });
+}
+
+
+function mostrarToast(mensagem) {
+  const toast = document.createElement("div");
+  toast.style = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#222; color:white; padding:10px 20px; border-radius:30px; z-index:9999; display:flex; align-items:center; gap:10px;";
+  toast.innerHTML = `⚠️ ${mensagem}`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+</script>
+
+
+</body>
+</html>

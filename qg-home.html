@@ -1,0 +1,239 @@
+<div id="postagensPublicas" style="display:none;"></div>
+
+<style>
+.reddit-card {
+  background: #fff;
+  color: #000;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 20px auto;
+  max-width: 720px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  font-family: Arial, sans-serif;
+}
+.reddit-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.reddit-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+.reddit-meta {
+  display: flex;
+  flex-direction: column;
+}
+.reddit-meta span {
+  font-size: 14px;
+  color: #555;
+}
+.reddit-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 8px 0;
+}
+.reddit-badge {
+  display: inline-block;
+  background: #eee;
+  color: #333;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+.reddit-description {
+  font-size: 15px;
+  color: #222;
+  margin-top: 10px;
+}
+.reddit-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #ccc;
+  font-size: 14px;
+  color: #444;
+}
+.vote-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.vote-btn {
+  background: #f3f3f3;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.vote-count {
+  font-weight: bold;
+}
+.comment-count {
+  margin-left: auto;
+}
+.share-btn a {
+  text-decoration: none;
+  color: #0066cc;
+  font-weight: bold;
+}
+</style>
+
+<script>
+function isPaginaQGIndividual() {
+  const path = window.location.pathname;
+  const searchParams = new URLSearchParams(window.location.search);
+  return searchParams.has("postID") || /^\/qg\/\d+\/[^\/]+$/.test(path);
+}
+
+async function carregarPostsPublicos() {
+  const res = await fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ action: "get_public_posts" })
+  });
+
+  const data = await res.json();
+  const container = document.getElementById("postagensPublicas");
+  container.innerHTML = "";
+
+  const viewed = new Set();
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        const idMatch = entry.target.id.match(/post-(\d+)/);
+        if (idMatch) registrarVisualizacao(idMatch[1]);
+        observer.unobserve(entry.target);
+      }
+    }
+  }, { threshold: 0.5 });
+
+  function registrarVisualizacao(comment_ID) {
+    if (viewed.has(comment_ID)) return;
+    viewed.add(comment_ID);
+
+    fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ action: "register_view", comment_ID })
+    }).then(res => res.json()).then(json => {
+      console.log("📌 View registrada:", comment_ID, json);
+    });
+  }
+
+  async function buscarViews(comment_ID) {
+    try {
+      const res = await fetch("https://rip-bf5.com.br/api/d_comments_b/", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ action: "get_post_views", post_id: comment_ID })
+      });
+      const data = await res.json();
+      return data.success ? data.views : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  if (data.success && Array.isArray(data.posts)) {
+    for (const post of data.posts) {
+      const ea_id = post.ea_id;
+      let userName = "Usuário";
+      let avatar = "https://via.placeholder.com/40";
+
+      try {
+        const perfilRes = await fetch(`https://api.gametools.network/bfglobal/games/?include_emblem=false&playerid=${ea_id}&platform=pc`);
+        const perfil = await perfilRes.json();
+        userName = perfil.userName || "Usuário";
+        avatar = perfil.avatar || avatar;
+      } catch {}
+
+      const contentMatch = post.comment_content.match(/\[link\](.*?)\[\/link\]\s*(.*)/s);
+      const videoUrl = contentMatch?.[1]?.trim() || "";
+      const descricao = contentMatch?.[2]?.trim() || "";
+
+let embed = "";
+
+if (videoUrl.includes("youtu")) {
+  const ytMatch = videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) {
+    embed = `<iframe width="100%" height="360" src="https://www.youtube.com/embed/${ytMatch[1]}" frameborder="0" allowfullscreen></iframe>`;
+  }
+} else if (videoUrl.includes(".mp4")) {
+  embed = `
+    <video controls width="100%" style="max-height: 480px; border-radius: 8px;">
+      <source src="${videoUrl}" type="video/mp4">
+      Seu navegador não suporta a tag de vídeo.
+    </video>`;
+} else {
+  embed = `<a href="${videoUrl}" target="_blank">${videoUrl}</a>`;
+}
+
+
+      const slug = post.post_title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+      const postUrl = `https://rip-bf5.com.br/qg/?postID=${post.comment_ID}&ti=${slug}`;
+
+      const div = document.createElement("div");
+      div.className = "reddit-card";
+      div.id = `post-${post.comment_ID}`;
+      
+      const views = await buscarViews(post.comment_ID);
+
+      div.innerHTML = `
+        <div class="reddit-header">
+          <img src="${avatar}" class="reddit-avatar">
+          <div class="reddit-meta">
+            <span><strong>u/${userName}</strong></span>
+            <span>${post.comment_date}</span>
+          </div>
+        </div>
+
+        <div class="reddit-title">${post.post_title}</div>
+        ${videoUrl.includes("youtu") ? `<div class="reddit-badge">Vídeo</div>` : ""}
+        ${embed}
+        <div class="reddit-description">${descricao}</div>
+
+        <div class="reddit-footer">
+          <div class="vote-group">
+            <button class="vote-btn">⬆</button><span class="vote-count">${post.likes || 0}</span>
+            <button class="vote-btn">⬇</button>
+          </div>
+          <div class="comment-count" style="display: flex; align-items: center; gap: 10px;">
+  <span style="cursor:pointer;" onclick="window.location.href='${postUrl}'">
+    💬 ${post.comentarios || 0}
+  </span>
+  👁️ ${views}
+</div>
+
+          <button class="vote-btn" onclick="copiarLink('${postUrl}', this)">
+            <img src="https://cdn-icons-png.flaticon.com/512/929/929610.png" style="width:16px; height:16px; vertical-align:middle;"> Compartilhar
+          </button>
+
+        </div>
+      `;
+      container.appendChild(div);
+      observer.observe(div);
+    }
+  }
+}
+
+if (!isPaginaQGIndividual()) {
+  document.getElementById("postagensPublicas").style.display = "block";
+  carregarPostsPublicos();
+}
+
+function copiarLink(link, btn) {
+  navigator.clipboard.writeText(link).then(() => {
+    const original = btn.innerHTML;
+    btn.innerHTML = "✅ Copiado!";
+    setTimeout(() => btn.innerHTML = original, 2000);
+  });
+}
+
+</script>
