@@ -531,7 +531,7 @@ async function enviarResposta(commentID) {
 
   const tokenData = await tokenRes.json();
   if (!tokenData.success || !tokenData.access_token_comment) {
-    alert("Erro ao obter token.");
+    alert("Permissão negada. Entra na conta ou ative sua conta no perfil ou ela foi bloqueada por um administrador..");
     return;
   }
 
@@ -577,7 +577,7 @@ async function votarComentario(commentID, tipo, el) {
 
     const tokenData = await tokenRes.json();
     if (!tokenData.success || !tokenData.access_token_comment) {
-      alert("Erro ao obter token.");
+      alert("Permissão negada. Entra na conta ou ative sua conta no perfil ou ela foi bloqueada por um administrador..");
       return;
     }
 
