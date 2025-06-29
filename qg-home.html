@@ -158,22 +158,22 @@ async function carregarPostsPublicos() {
       const videoUrl = contentMatch?.[1]?.trim() || "";
       const descricao = contentMatch?.[2]?.trim() || "";
 
-let embed = "";
+      let embed = "";
 
-if (videoUrl.includes("youtu")) {
-  const ytMatch = videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/);
-  if (ytMatch) {
-    embed = `<iframe width="100%" height="360" src="https://www.youtube.com/embed/${ytMatch[1]}" frameborder="0" allowfullscreen></iframe>`;
-  }
-} else if (videoUrl.includes(".mp4")) {
-  embed = `
-    <video controls width="100%" style="max-height: 480px; border-radius: 8px;">
-      <source src="${videoUrl}" type="video/mp4">
-      Seu navegador não suporta a tag de vídeo.
-    </video>`;
-} else {
-  embed = `<a href="${videoUrl}" target="_blank">${videoUrl}</a>`;
-}
+      if (videoUrl.includes("youtu")) {
+        const ytMatch = videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/);
+        if (ytMatch) {
+          embed = `<iframe width="100%" height="360" src="https://www.youtube.com/embed/${ytMatch[1]}" frameborder="0" allowfullscreen></iframe>`;
+        }
+      } else if (videoUrl.includes(".mp4")) {
+        embed = `
+          <video controls width="100%" style="max-height: 480px; border-radius: 8px;">
+            <source src="${videoUrl}" type="video/mp4">
+            Seu navegador não suporta a tag de vídeo.
+          </video>`;
+      } else {
+        embed = `<a href="${videoUrl}" target="_blank">${videoUrl}</a>`;
+      }
 
 
       const slug = post.post_title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -221,8 +221,9 @@ if (videoUrl.includes("youtu")) {
           </div>
 
           <div class="comment-count" style="display: flex; align-items: center; gap: 10px;">
-            <span style="cursor:pointer;" onclick="window.location.href='${postUrl}'">
-              💬 ${post.comentarios || 0}
+            <span style="cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="window.location.href='${postUrl}'">
+              <img src="https://cdn-icons-png.flaticon.com/512/2462/2462719.png" width="16" height="16" style="vertical-align:middle;">
+              ${post.total_comments || 0}
             </span>
             <div class="vote-btn" style="display:flex; align-items:center;">
               <img src="https://cdn-icons-png.flaticon.com/512/709/709612.png" width="18" style="vertical-align:middle; margin-right:4px;">
