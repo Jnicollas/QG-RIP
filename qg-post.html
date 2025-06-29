@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Postar no QG</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      background: #f5f7fa;
+    }
+
+    .qg-form-container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      max-width: 700px;
+      margin: auto;
+      padding: 24px;
+    }
+
+    .qg-tabs {
+      display: flex;
+      gap: 16px;
+      border-bottom: 2px solid #eee;
+      margin-bottom: 20px;
+    }
+
+    .qg-tab {
+      padding: 10px 20px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .qg-tab.active {
+      border-color: #007bff;
+      color: #007bff;
+    }
+
+    .qg-form label {
+      font-weight: bold;
+      margin-top: 16px;
+      display: block;
+    }
+
+    .qg-form input[type="text"],
+    .qg-form textarea {
+      width: 100%;
+      padding: 10px;
+      font-size: 15px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      resize: vertical;
+    }
+
+    .char-counter {
+      text-align: right;
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .qg-form button {
+      margin-top: 20px;
+      padding: 12px 20px;
+      background: #007bff;
+      border: none;
+      color: white;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .qg-form button:hover {
+      background: #005ec4;
+    }
+
+    #linkField {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="qg-form-container">
+    <div class="qg-tabs">
+      <div class="qg-tab active" onclick="selectTab('texto')">Texto</div>
+      <div class="qg-tab" onclick="selectTab('link')">Link</div>
+    </div>
+
+    <form id="formQG" class="qg-form">
+      <label for="titulo">Título*</label>
+      <input type="text" id="titulo" name="titulo" maxlength="300" required oninput="updateCharCount()">
+      <div class="char-counter" id="charCounter">0/300</div>
+
+      <div id="linkField">
+        <label for="link_url">URL do Link*</label>
+        <input type="text" id="link_url" name="link_url" placeholder="https://..." />
+      </div>
+
+      <label for="content">Texto do post*</label>
+      <textarea id="content" name="content" rows="6" required></textarea>
+
+      <button type="submit">Postar</button>
+    </form>
+  </div>
+
+  <script>
+    function selectTab(tipo) {
+      const tabs = document.querySelectorAll(".qg-tab");
+      tabs.forEach(tab => tab.classList.remove("active"));
+      document.querySelector(`.qg-tab:nth-child(${tipo === 'texto' ? 1 : 2})`).classList.add("active");
+
+      const linkField = document.getElementById("linkField");
+      const linkInput = document.getElementById("link_url");
+
+      if (tipo === 'link') {
+        linkField.style.display = "block";
+        linkInput.setAttribute("required", "required");
+      } else {
+        linkField.style.display = "none";
+        linkInput.removeAttribute("required");
+      }
+    }
+
+    function updateCharCount() {
+      const input = document.getElementById("titulo");
+      const counter = document.getElementById("charCounter");
+      counter.textContent = `${input.value.length}/300`;
+    }
+  </script>
+
+</body>
+</html>
